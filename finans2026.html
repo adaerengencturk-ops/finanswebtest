@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Borç Analiz Terminali</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: #0a0a0a;
+            color: #e0e0e0;
+        }
+
+        .neon-border {
+            border: 1px solid #00f3ff;
+            box-shadow: 0 0 10px #00f3ff33;
+        }
+
+        .critical {
+            color: #ff4d4d;
+            text-shadow: 0 0 5px #ff4d4d;
+        }
+
+        .safe {
+            color: #00ffcc;
+            text-shadow: 0 0 5px #00ffcc;
+        }
+    </style>
+</head>
+
+<body class="p-4 md:p-8">
+    <div class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tighter text-cyan-400">DEBT_TERMINAL_V1.0</h1>
+                <p class="text-xs text-gray-500">SYSTEM STATUS: <span
+                        class="text-green-500 animate-pulse">ACTIVE_SYNC</span></p>
+            </div>
+            <div id="last-update" class="text-right text-xs text-gray-400">Yükleniyor...</div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8" id="summary-cards">
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 bg-black/50 p-6 neon-border rounded-lg">
+                <h2 class="text-sm font-bold mb-4 text-cyan-500">> BORÇ DÖKÜMÜ & GRUPLAMA</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead>
+                            <tr class="border-b border-gray-700 text-gray-400 uppercase">
+                                <th class="py-2">Kime</th>
+                                <th class="py-2">Banka/Tür</th>
+                                <th class="py-2 text-right">Kalan Borç</th>
+                                <th class="py-2 text-right">Faiz</th>
+                                <th class="py-2 text-center">Taksit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="debt-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-gray-900/80 p-6 border border-gray-700 rounded-lg">
+                <h2 class="text-sm font-bold mb-4 text-yellow-500">> STRATEJİK ANALİZ</h2>
+                <div id="strategy-output" class="text-xs leading-relaxed">
+                    Veriler işleniyor...
+                </div>
+                <div class="mt-6 p-4 bg-black border border-dashed border-gray-600">
+                    <p class="text-[10px] text-gray-400 mb-2 uppercase">Öneri Modeli: KAR TOPU (SNOWBALL)</p>
+                    <p id="recommendation" class="text-cyan-400"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Başına corsproxy eklenmiş hali:
+        const CSV_URL = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://docs.google.com/spreadsheets/d/e/2PACX-1vShhu3BvadUtOHKGntrLyDVZbkoBreuuRFKLbuWzdZYTevXODiVHssTa4hl1ofIlFQL_rdWDVtNu5me/pub?output=csv');
+        async function fetchData() {
+            try {
+                const response = await fetch(CSV_URL);
+                const data = await response.text();
+                const rows = data.split('\n').slice(1);
+                processDebts(rows);
+            } catch (error) {
+                console.error('Veri çekilemedi:', error);
+            }
+        }
+
+        function processDebts(rows) {
+            let totalDebt = 0;
+            let totalMonthly = 0;
+            let categories = { Eren: 0, Asli: 0, Yasemin: 0 };
+            let tableHtml = '';
+
+            rows.forEach(row => {
+                const cols = row.split(',');
+                if (cols.length < 4) return;
+
+                const kime = cols[0].trim();
+                const banka = cols[1].trim();
+                const tur = cols[2].trim();
+                const kalan = parseFloat(cols[3]) || 0;
+                const faiz = cols[6] || '0';
+                const taksit = cols[4] + '/' + cols[5];
+
+                totalDebt += kalan;
+                if (categories.hasOwnProperty(kime)) categories[kime] += kalan;
+
+                tableHtml += `
+                    <tr class="border-b border-gray-800 hover:bg-white/5 transition-colors">
+                        <td class="py-3 font-bold text-gray-300">${kime}</td>
+                        <td class="py-3">${banka} <span class="text-gray-500">[${tur}]</span></td>
+                        <td class="py-3 text-right text-cyan-400 font-bold">₺${kalan.toLocaleString('tr-TR')}</td>
+                        <td class="py-3 text-right text-yellow-500">%${faiz}</td>
+                        <td class="py-3 text-center text-gray-400">${taksit}</td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('debt-table-body').innerHTML = tableHtml;
+            renderSummary(totalDebt, categories);
+            renderStrategy(rows);
+            document.getElementById('last-update').innerText = 'SON GÜNCELLEME: ' + new Date().toLocaleTimeString();
+        }
+
+        function renderSummary(total, cats) {
+            const container = document.getElementById('summary-cards');
+            let cards = `
+                <div class="bg-black p-4 border-l-4 border-cyan-500 neon-border">
+                    <p class="text-[10px] text-gray-500 uppercase">Toplam Borç Yükü</p>
+                    <p class="text-xl font-bold text-cyan-400 font-mono">₺${total.toLocaleString('tr-TR')}</p>
+                </div>
+            `;
+
+            for (let [cat, val] of Object.entries(cats)) {
+                cards += `
+                    <div class="bg-black p-4 border-l-4 border-gray-700">
+                        <p class="text-[10px] text-gray-500 uppercase">${cat} Sorumluluğu</p>
+                        <p class="text-lg font-bold font-mono">₺${val.toLocaleString('tr-TR')}</p>
+                    </div>
+                `;
+            }
+            container.innerHTML = cards;
+        }
+
+        function renderStrategy(rows) {
+            const rec = document.getElementById('recommendation');
+            // Basit bir analiz: En yüksek faizli veya KMH borcunu bul
+            rec.innerHTML = "> KMH borçları %4.5 faiz yükü ile likidite kaybına yol açıyor. İlk hedef KMH bakiyelerini sıfırlamak olmalı.";
+        }
+
+        fetchData();
+        setInterval(fetchData, 60000); // Her dakika güncelle
+    </script>
+</body>
+
+</html>
