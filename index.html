@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Borç Analiz OS v3.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
         body { font-family: 'JetBrains Mono', monospace; background-color: #050505; color: #00ffaa; }
@@ -14,11 +13,29 @@
     </style>
 </head>
 <body class="p-4 md:p-8">
+
+    <script>
+        // --- BU SATIRI KENDİ LİNKİNLE DEĞİŞTİR (TIRNAKLARA DİKKAT) ---
+        const API_URL = 'https://script.google.com/macros/s/AKfycbwbBX-C4apCHFf1-emfDny4R-HjPpCQY_4pmJMH1pTJ/dev';
+        // ----------------------------------------------------------
+
+        async function init() {
+            try {
+                const res = await fetch(API_URL);
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                renderUI(data);
+            } catch (e) {
+                document.getElementById('loading').innerHTML = "KRİTİK HATA: " + e.message;
+            }
+        }
+    </script>
+
     <div class="max-w-7xl mx-auto">
         <header class="flex justify-between items-center mb-8 border-b border-green-900 pb-4">
             <div>
                 <h1 class="text-2xl font-bold neon-text uppercase tracking-tighter">>> STRATEGY_ENGINE_V3.2</h1>
-                <p id="last-update" class="text-[10px] opacity-50 font-bold italic font-mono">SYSTEM_READY</p>
+                <p id="last-update" class="text-[10px] opacity-50 font-bold italic font-mono uppercase">System_Active</p>
             </div>
         </header>
 
@@ -26,7 +43,6 @@
 
         <div id="main-ui" class="hidden">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8" id="top-stats"></div>
-
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div class="lg:col-span-3 terminal-border p-5 rounded-lg overflow-hidden">
                     <h2 class="text-xs font-bold mb-4 text-green-500 uppercase">// NAKİT_AKIŞI_TABLOSU</h2>
@@ -46,7 +62,6 @@
                         </table>
                     </div>
                 </div>
-
                 <div class="space-y-6">
                     <div class="terminal-border p-5 rounded-lg text-[10px] space-y-3" id="strategy-box"></div>
                 </div>
@@ -55,47 +70,23 @@
     </div>
 
     <script>
-        // LİNKİNİ BURAYA YAPIŞTIR
-        const API_URL = const API_URL = 'https://script.google.com/macros/s/AKfycby_fvtRhd2OwSAX5b51fxe7fBxWelWg5eWdBDW0iCJMfOr4mSLv8Gv9pvrz37XGfFurtg/exec';
-
-        async function init() {
-            try {
-                const res = await fetch(API_URL);
-                const data = await res.json();
-                if (data.error) throw new Error(data.error);
-                renderUI(data);
-            } catch (e) {
-                document.getElementById('loading').innerHTML = "KRİTİK HATA: " + e.message;
-                console.error(e);
-            }
-        }
-
         function renderUI(data) {
             document.getElementById('loading').style.display = 'none';
             document.getElementById('main-ui').classList.remove('hidden');
-
             let totalDebt = 0, totalMonthly = 0, dailyLoss = 0;
             let rowsHtml = '';
 
             data.forEach(item => {
-                // Sütun isimlerindeki boşlukları temizleyerek değerleri alıyoruz
                 const getVal = (key) => item[key] || item[key.trim()] || 0;
-
                 const kime = item['Kime'] || '---';
                 const banka = item['Banka'] || '---';
                 const tur = item['Tür'] || '---';
                 const kalan = parseFloat(getVal('Kalan Borç')) || 0;
                 const faiz = parseFloat(getVal('Faiz Oranı')) || 0;
-                const odenenT = getVal('Ödenen Taksit');
-                const toplamT = getVal('Toplam Taksit');
-                
                 let aylik = parseFloat(getVal('Aylık Ödeme')) || 0;
-                
-                // Eğer aylık ödeme girilmemişse otomatik hesapla
                 if (aylik === 0 && (tur === 'KMH' || tur === 'Kredi Kartı')) {
                     aylik = (kalan * (faiz / 100));
                 }
-
                 totalDebt += kalan;
                 totalMonthly += aylik;
                 if(tur === 'KMH') dailyLoss += (kalan * (faiz/100)) / 30;
@@ -107,28 +98,24 @@
                         <td class="p-3 text-right text-white font-bold">₺${kalan.toLocaleString('tr-TR')}</td>
                         <td class="p-3 text-center ${faiz >= 4 ? 'text-red-500' : 'text-yellow-600'}">%${faiz}</td>
                         <td class="p-3 text-right text-cyan-400 font-bold">₺${aylik.toLocaleString('tr-TR', {maximumFractionDigits:0})}</td>
-                        <td class="p-3 text-center opacity-50 text-[10px]">${odenenT}/${toplamT}</td>
+                        <td class="p-3 text-center opacity-50 text-[10px]">${getVal('Ödenen Taksit')}/${getVal('Toplam Taksit')}</td>
                     </tr>
                 `;
             });
 
             document.getElementById('data-rows').innerHTML = rowsHtml;
             document.getElementById('last-update').innerText = "SYNC_OK: " + new Date().toLocaleTimeString();
-
             document.getElementById('top-stats').innerHTML = `
                 <div class="terminal-border p-4 bg-black"><p class="text-[9px] opacity-50 uppercase">Toplam Borç</p><p class="text-xl font-bold">₺${totalDebt.toLocaleString('tr-TR')}</p></div>
                 <div class="terminal-border p-4 border-l-4 border-cyan-500 bg-cyan-950/10"><p class="text-[9px] uppercase text-cyan-500 font-bold">Aylık Nakit Çıkışı</p><p class="text-xl font-bold text-cyan-400">₺${totalMonthly.toLocaleString('tr-TR')}</p></div>
-                <div class="terminal-border p-4 border-l-4 border-red-500 bg-red-950/10"><p class="text-[9px] uppercase text-red-500 font-bold font-mono">Günlük Faiz Sızıntısı</p><p class="text-xl font-bold text-red-500">₺${dailyLoss.toFixed(2)}</p></div>
+                <div class="terminal-border p-4 border-l-4 border-red-500 bg-red-950/10"><p class="text-[9px] uppercase text-red-500 font-bold">Günlük Faiz Sızıntısı</p><p class="text-xl font-bold text-red-500">₺${dailyLoss.toFixed(2)}</p></div>
                 <div class="terminal-border p-4"><p class="text-[9px] opacity-50 uppercase">Dosya Sayısı</p><p class="text-xl font-bold">${data.length}</p></div>
             `;
-
             document.getElementById('strategy-box').innerHTML = `
                 <h2 class="text-xs font-bold mb-4 text-yellow-600 uppercase">// SİSTEM_MESAJI</h2>
-                <p>● <b class="text-white">DURUM:</b> Toplam <span class="text-white font-bold">₺${totalDebt.toLocaleString('tr-TR')}</span> yük altında aylık <span class="text-cyan-400 font-bold">₺${totalMonthly.toLocaleString('tr-TR')}</span> nakit çıkışınız var.</p>
-                <p>● <b class="text-white">UYARI:</b> Günlük faiz sızıntısı <span class="text-red-500">₺${dailyLoss.toFixed(2)}</span>. Bu sızıntıyı durdurmak nakit akışını %${((dailyLoss*30/totalMonthly)*100).toFixed(1)} iyileştirir.</p>
+                <p>● <b class="text-white">UYARI:</b> Günlük faiz sızıntısı <span class="text-red-500 font-bold">₺${dailyLoss.toFixed(2)}</span>.</p>
             `;
         }
-
         init();
     </script>
 </body>
