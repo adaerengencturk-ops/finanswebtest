@@ -3,56 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Borç Analiz Terminali v2.0</title>
+    <title>Borç Analiz OS v3.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
         body { font-family: 'JetBrains Mono', monospace; background-color: #050505; color: #00ffaa; }
-        .terminal-border { border: 1px solid #004422; box-shadow: 0 0cons 15px rgba(0, 255, 170, 0.1); }
+        .terminal-border { border: 1px solid #004422; background: rgba(0, 15, 5, 0.9); }
         .neon-text { text-shadow: 0 0 8px rgba(0, 255, 170, 0.6); }
-        .critical-glow { animation: blink 1.5s infinite; color: #ff3333; }
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
     </style>
 </head>
 <body class="p-4 md:p-8">
-    <div class="max-w-6xl mx-auto">
-        <header class="flex justify-between items-center mb-10 border-b border-green-900 pb-4">
+    <div class="max-w-7xl mx-auto">
+        <header class="flex justify-between items-center mb-8 border-b border-green-900 pb-4">
             <div>
-                <h1 class="text-2xl font-bold neon-text tracking-tighter uppercase">>> DEBT_ANALYSIS_OS_V2</h1>
-                <p class="text-[10px] opacity-50">SYNC_STATUS: <span class="text-green-500">STABLE</span> | ENCRYPTED_LINK: ACTIVE</p>
+                <h1 class="text-2xl font-bold neon-text uppercase tracking-tighter">>> DEBT_STRATEGY_V3.1</h1>
+                <p id="last-update" class="text-[10px] opacity-50 font-bold italic">BAĞLANTI BEKLENİYOR...</p>
             </div>
-            <div id="last-update" class="text-right text-[10px] text-gray-500">BAĞLANTI BEKLENİYOR...</div>
         </header>
 
-        <div id="loading-screen" class="text-center py-20 text-xl animate-pulse">
-            SİSTEM VERİLERİ ÇEKİLİYOR...
-        </div>
+        <div id="loading" class="text-center py-20 animate-pulse text-xl">VERİ KÖPRÜSÜ KURULUYOR...</div>
 
-        <div id="dashboard" class="hidden">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8" id="stats-grid"></div>
+        <div id="main-ui" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8" id="top-stats"></div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-2 terminal-border bg-black/80 p-6 rounded">
-                    <h2 class="text-xs font-bold mb-4 text-green-700 uppercase">// AKTİF_BORÇ_LİSTESİ</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <div class="lg:col-span-3 terminal-border p-5 rounded-lg">
+                    <h2 class="text-xs font-bold mb-4 text-green-500 uppercase">// AKTİF_ENVANTER_VE_NAKİT_AKIŞI</h2>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs">
+                        <table class="w-full text-left text-[11px]">
                             <thead>
-                                <tr class="border-b border-green-900 text-green-800">
-                                    <th class="p-2">SORUMLU</th>
-                                    <th class="p-2">BANKA / TÜR</th>
-                                    <th class="p-2 text-right">KALAN BORÇ</th>
-                                    <th class="p-2 text-center">FAİZ</th>
-                                    <th class="p-2 text-center">VADE</th>
+                                <tr class="border-b border-green-800 text-green-700 uppercase font-bold">
+                                    <th class="p-2">Sorumlu</th>
+                                    <th class="p-2">Kurum / Tür</th>
+                                    <th class="p-2 text-right">Kalan Bakiye</th>
+                                    <th class="p-2 text-center">Faiz</th>
+                                    <th class="p-2 text-right text-cyan-400">Aylık Ödeme</th>
+                                    <th class="p-2 text-center">Vade</th>
                                 </tr>
                             </thead>
-                            <tbody id="debt-rows"></tbody>
+                            <tbody id="data-rows"></tbody>
                         </table>
                     </div>
                 </div>
 
-                <div class="terminal-border bg-black/80 p-6 rounded">
-                    <h2 class="text-xs font-bold mb-4 text-yellow-600 uppercase">// STRATEJİK_ANALİZ_MOTORU</h2>
-                    <div id="analysis-output" class="text-[11px] space-y-4"></div>
+                <div class="space-y-6">
+                    <div class="terminal-border p-5 rounded-lg">
+                        <h2 class="text-xs font-bold mb-4 text-yellow-600 uppercase">// DAĞILIM_ANALİZİ</h2>
+                        <canvas id="debtChart"></canvas>
+                    </div>
+                    <div id="strategy-box" class="terminal-border p-5 rounded-lg text-[10px] space-y-3">
+                        </div>
                 </div>
             </div>
         </div>
@@ -60,90 +61,99 @@
 
     <script>
         // BURAYA KENDİ APPS SCRIPT URL'Nİ YAPIŞTIR
-        const API_URL = 'https://script.google.com/macros/s/AKfycby_fvtRhd2OwSAX5b51fxe7fBxWelWg5eWdBDW0iCJMfOr4mSLv8Gv9pvrz37XGfFurtg/exec';
+        const API_URL = 'BURAYA_KENDİ_LINKINI_YAPIŞTIR';
+        let myChart = null;
 
-        async function loadData() {
+        async function init() {
             try {
-                const response = await fetch(API_URL);
-                const data = await response.json();
+                const res = await fetch(API_URL);
+                const data = await res.json();
                 renderUI(data);
-            } catch (error) {
-                console.error("Hata:", error);
-                document.getElementById('loading-screen').innerHTML = "BAĞLANTI HATASI: APPS SCRIPT ERİŞİMİNİ KONTROL EDİN.";
+            } catch (e) {
+                document.getElementById('loading').innerHTML = "KRİTİK HATA: VERİ KÖPRÜSÜ KURULAMADI.";
             }
         }
 
         function renderUI(data) {
-            document.getElementById('loading-screen').classList.add('hidden');
-            document.getElementById('dashboard').classList.remove('hidden');
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('main-ui').classList.remove('hidden');
 
             let totalDebt = 0;
+            let totalMonthlyPayment = 0;
             let dailyInterestLoss = 0;
+            let cats = {};
             let rowsHtml = '';
-            let categories = {};
 
             data.forEach(item => {
                 const kalan = parseFloat(item['Kalan Borç']) || 0;
                 const faiz = parseFloat(item['Faiz Oranı']) || 0;
-                const kime = item['Kime'] || 'Belirsiz';
+                const kime = item['Kime'] || 'Diğer';
                 
+                // Aylık Ödeme Mantığı (Senin istediğin ekleme burada)
+                let aylikOdeme = parseFloat(item['Aylık Ödeme']) || 0;
+                if (aylikOdeme === 0 && (item['Tür'] === 'KMH' || item['Tür'] === 'Kredi Kartı')) {
+                    aylikOdeme = (kalan * (faiz / 100)); // Sadece aylık faiz yükü tahmini
+                }
+
                 totalDebt += kalan;
-                // KMH ve Kredi Kartı için günlük faiz sızıntısı tahmini (basit hesap)
-                if(item['Tür'] === 'KMH' || item['Tür'] === 'Kredi Kartı') {
+                totalMonthlyPayment += aylikOdeme;
+                cats[kime] = (cats[kime] || 0) + kalan;
+                
+                if(item['Tür'] === 'KMH') {
                     dailyInterestLoss += (kalan * (faiz/100)) / 30;
                 }
 
-                categories[kime] = (categories[kime] || 0) + kalan;
-
                 rowsHtml += `
-                    <tr class="border-b border-green-950 hover:bg-green-900/10 transition-all">
+                    <tr class="border-b border-green-950 hover:bg-green-900/10 transition-colors">
                         <td class="p-3 font-bold">${kime}</td>
-                        <td class="p-3 text-gray-400">${item['Banka']} <span class="text-[10px]">[${item['Tür']}]</span></td>
-                        <td class="p-3 text-right text-white">₺${kalan.toLocaleString('tr-TR')}</td>
-                        <td class="p-3 text-center ${faiz >= 4 ? 'text-red-500 font-bold' : 'text-yellow-600'}">%${faiz}</td>
-                        <td class="p-3 text-center text-gray-500 text-[10px]">${item['Ödenen Taksit']}/${item['Toplam Taksit']}</td>
+                        <td class="p-3 opacity-70">${item['Banka']} <span class="text-[9px]">[${item['Tür']}]</span></td>
+                        <td class="p-3 text-right text-white font-bold">₺${kalan.toLocaleString('tr-TR')}</td>
+                        <td class="p-3 text-center ${faiz >= 4.5 ? 'text-red-500' : 'text-yellow-600'}">%${faiz}</td>
+                        <td class="p-3 text-right text-cyan-400 font-bold font-mono">₺${aylikOdeme.toLocaleString('tr-TR', {maximumFractionDigits:0})}</td>
+                        <td class="p-3 text-center opacity-50">${item['Ödenen Taksit'] || 0}/${item['Toplam Taksit'] || 0}</td>
                     </tr>
                 `;
             });
 
-            document.getElementById('debt-rows').innerHTML = rowsHtml;
-            document.getElementById('last-update').innerText = "LAST_SYNC: " + new Date().toLocaleTimeString();
+            document.getElementById('data-rows').innerHTML = rowsHtml;
+            document.getElementById('last-update').innerText = "DATA_SYNC_SUCCESS: " + new Date().toLocaleTimeString();
 
             // İstatistik Kartları
-            document.getElementById('stats-grid').innerHTML = `
-                <div class="terminal-border p-4 bg-green-950/10">
-                    <p class="text-[9px] uppercase opacity-50">Toplam Yük</p>
-                    <p class="text-xl font-bold text-white">₺${totalDebt.toLocaleString('tr-TR')}</p>
-                </div>
-                <div class="terminal-border p-4 bg-red-950/10">
-                    <p class="text-[9px] uppercase opacity-50">Günlük Faiz Sızıntısı</p>
-                    <p class="text-xl font-bold text-red-500">₺${dailyInterestLoss.toFixed(2)}</p>
-                </div>
-                <div class="terminal-border p-4 bg-blue-950/10">
-                    <p class="text-[9px] uppercase opacity-50">Eren Sorumluluğu</p>
-                    <p class="text-lg font-bold">₺${(categories['Eren'] || 0).toLocaleString('tr-TR')}</p>
-                </div>
-                <div class="terminal-border p-4 bg-gray-900/50">
-                    <p class="text-[9px] uppercase opacity-50">Aktif Kalem</p>
-                    <p class="text-lg font-bold">${data.length} ADET</p>
-                </div>
+            document.getElementById('top-stats').innerHTML = `
+                <div class="terminal-border p-4 bg-black"><p class="text-[9px] opacity-50 uppercase">Toplam Borç</p><p class="text-xl font-bold">₺${totalDebt.toLocaleString('tr-TR')}</p></div>
+                <div class="terminal-border p-4 border-l-4 border-cyan-500 bg-cyan-950/10"><p class="text-[9px] uppercase text-cyan-500">Aylık Toplam Ödeme</p><p class="text-xl font-bold text-cyan-400">₺${totalMonthlyPayment.toLocaleString('tr-TR')}</p></div>
+                <div class="terminal-border p-4 border-l-4 border-red-500 bg-red-950/10"><p class="text-[9px] uppercase text-red-500">Günlük Faiz Kaybı</p><p class="text-xl font-bold text-red-500">₺${dailyInterestLoss.toFixed(2)}</p></div>
+                <div class="terminal-border p-4"><p class="text-[9px] opacity-50 uppercase font-bold text-green-700">Aktif Dosya</p><p class="text-xl font-bold text-green-700">${data.length}</p></div>
             `;
 
-            // Analiz Çıktısı
-            let analysis = `
-                <div class="p-3 border-l-2 border-red-600 bg-red-900/10">
-                    <p class="font-bold text-red-500 uppercase">KRİTİK UYARI:</p>
-                    <p>Günlük ₺${dailyInterestLoss.toFixed(2)} faiz sızıntısı tespit edildi. Bu miktar her ay yaklaşık ₺${(dailyInterestLoss * 30).toLocaleString('tr-TR')} ek yük demektir.</p>
-                </div>
-                <div class="p-3 border-l-2 border-yellow-600 bg-yellow-900/10">
-                    <p class="font-bold text-yellow-600 uppercase">STRATEJİ ÖNERİSİ:</p>
-                    <p>Faiz oranı %4+ olan KMH borçlarına öncelik vererek "Avalanche" yöntemini başlatın. En yüksek faizli borç temizlendiğinde nakit akışınız ayda ₺${(dailyInterestLoss * 10).toFixed(0)} rahatlayacaktır.</p>
-                </div>
+            // Strateji Notları
+            document.getElementById('strategy-box').innerHTML = `
+                <p>● <b class="text-white">AYLIK NAKİT ÇIKIŞI:</b> Cebinizden her ay zorunlu olarak <span class="text-cyan-400">₺${totalMonthlyPayment.toLocaleString('tr-TR')}</span> çıkıyor.</p>
+                <p>● <b class="text-white">FAİZ DUVARI:</b> Ayda toplam <span class="text-red-500">₺${(dailyInterestLoss * 30).toLocaleString('tr-TR')}</span> borç faizi (tahmini) ödeniyor.</p>
+                <p>● <b class="text-white">ÖNERİ:</b> %4.5 faizli KMH'ları kapatmak, aylık nakit akışınızı hızla rahatlatacaktır.</p>
             `;
-            document.getElementById('analysis-output').innerHTML = analysis;
+
+            updateChart(cats);
         }
 
-        loadData();
+        function updateChart(cats) {
+            const ctx = document.getElementById('debtChart').getContext('2d');
+            if(myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(cats),
+                    datasets: [{
+                        data: Object.values(cats),
+                        backgroundColor: ['#00ffaa', '#0066ff', '#ff3366', '#ffcc00'],
+                        borderColor: '#050505', borderWidth: 2
+                    }]
+                },
+                options: { plugins: { legend: { position: 'bottom', labels: { color: '#00ffaa', font: { size: 10 } } } } }
+            });
+        }
+
+        init();
     </script>
 </body>
 </html>
